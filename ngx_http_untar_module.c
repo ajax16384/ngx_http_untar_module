@@ -91,7 +91,8 @@ ngx_http_untar_create_main_conf(ngx_conf_t *cf)
         return NULL;
     }
 
-    ngx_rbtree_init(&mcf->archives_rbtree, &mcf->archives_sentinel, ngx_str_rbtree_insert_value);
+    ngx_rbtree_init(&mcf->archives_rbtree, &mcf->archives_sentinel,
+                    ngx_str_rbtree_insert_value);
     mcf->archives_pool = cf->pool;
 
     return mcf;
@@ -207,22 +208,23 @@ is_last_tar_header(const u_char *buf)
 
 
 static untar_archive_t *
-get_untar_archive(ngx_http_request_t *r, ngx_open_file_info_t *ofi, ngx_str_t *archive_name)
+get_untar_archive(ngx_http_request_t *r,
+                  ngx_open_file_info_t *ofi, ngx_str_t *archive_name)
 {
-    ngx_log_t                   *log;
-    ngx_http_untar_main_conf_t  *mcf;
-    untar_archive_t             *archive;
-    uint32_t                    archive_hash;
-    uint32_t                    archive_item_hash;
-    ngx_file_t                  file;
-    ssize_t                     read_size;
-    uint64_t                    current_file_size;
-    uint64_t                    current_mtime;
-    ngx_int_t                   has_last_tar_header;
-    tar_header_t                tar_header;
     off_t                       current_offset;
     off_t                       pad_size;
+    ssize_t                     read_size;
+    uint32_t                    archive_hash;
+    uint32_t                    archive_item_hash;
+    uint64_t                    current_file_size;
+    uint64_t                    current_mtime;
+    ngx_log_t                   *log;
+    ngx_int_t                   has_last_tar_header;
+    ngx_file_t                  file;
+    tar_header_t                tar_header;
+    untar_archive_t             *archive;
     untar_archive_item_t        *archive_item;
+    ngx_http_untar_main_conf_t  *mcf;
 
     log = r->connection->log;
 
@@ -234,16 +236,22 @@ get_untar_archive(ngx_http_request_t *r, ngx_open_file_info_t *ofi, ngx_str_t *a
 
     archive_hash = ngx_crc32_long(archive_name->data, archive_name->len);
 
-    archive = (untar_archive_t *)ngx_str_rbtree_lookup(&mcf->archives_rbtree, archive_name, archive_hash);
+    archive = (untar_archive_t *)ngx_str_rbtree_lookup(
+                            &mcf->archives_rbtree,archive_name,
+                            archive_hash);
 
     if (archive != NULL) {
-        if ((archive->file_size == ofi->size) && (archive->mtime == ofi->mtime)) {
+        if ((archive->file_size == ofi->size)
+            && (archive->mtime == ofi->mtime)) {
+
             if (archive->valid != NGX_OK) {
                 return NULL;
             }
             return archive;
         }
-        ngx_rbtree_init(&archive->items_rbtree, &archive->items_sentinel, ngx_str_rbtree_insert_value);
+        ngx_rbtree_init(&archive->items_rbtree,
+                        &archive->items_sentinel,
+                        ngx_str_rbtree_insert_value);
         ngx_reset_pool(archive->items_pool);
     }
     else {
@@ -251,13 +259,16 @@ get_untar_archive(ngx_http_request_t *r, ngx_open_file_info_t *ofi, ngx_str_t *a
         if (archive == NULL) {
             return NULL;
         }
-        archive->items_pool = ngx_create_pool(NGX_DEFAULT_POOL_SIZE, mcf->archives_pool->log);
+        archive->items_pool = ngx_create_pool(NGX_DEFAULT_POOL_SIZE,
+                                              mcf->archives_pool->log);
         if (archive->items_pool == NULL) {
             return NULL;
         }
-    
-        ngx_rbtree_init(&archive->items_rbtree, &archive->items_sentinel, ngx_str_rbtree_insert_value);
-        
+
+        ngx_rbtree_init(&archive->items_rbtree,
+                        &archive->items_sentinel,
+                        ngx_str_rbtree_insert_value);
+
         archive->file_name.len = archive_name->len;
         archive->file_name.data = ngx_pstrdup(mcf->archives_pool, archive_name);
         if (archive->file_name.data == NULL) {
@@ -284,9 +295,13 @@ get_untar_archive(ngx_http_request_t *r, ngx_open_file_info_t *ofi, ngx_str_t *a
 
 
     while (current_offset < ofi->size) {
-        read_size = ngx_read_file(&file, (u_char *)&tar_header, sizeof(tar_header), current_offset);
+        read_size = ngx_read_file(&file,
+                                  (u_char *)&tar_header,
+                                  sizeof(tar_header),
+                                  current_offset);
         if (read_size != sizeof(tar_header)) {
-            ngx_log_error(NGX_LOG_ERR, log, 0, "Unable to read tar header \"%s\".", archive_name->data);
+            ngx_log_error(NGX_LOG_ERR, log, 0,
+                "Unable to read tar header \"%s\".", archive_name->data);
             return NULL;
         }
 
@@ -299,51 +314,71 @@ get_untar_archive(ngx_http_request_t *r, ngx_open_file_info_t *ofi, ngx_str_t *a
         // "mode" must be parsed before this line
         tar_header.mode[0] = '\0';
 
-        if (octal_to_int(tar_header.size, sizeof(tar_header.size), &current_file_size) != NGX_OK) {
-            ngx_log_error(NGX_LOG_ERR, log, 0, "Wrong tar header item size \"%s\" \"%s\".", archive_name->data, tar_header.name);
+        if (octal_to_int(tar_header.size,
+                         sizeof(tar_header.size),
+                         &current_file_size) != NGX_OK) {
+            ngx_log_error(NGX_LOG_ERR, log, 0,
+                "Wrong tar header item size \"%s\" \"%s\".",
+                archive_name->data, tar_header.name);
             return NULL;
         }
 
         if (current_file_size >= NGX_MAX_OFF_T_VALUE) {
-            ngx_log_error(NGX_LOG_ERR, log, 0, "Wrong tar header item size value \"%s\" \"%s\".", archive_name->data, tar_header.name);
+            ngx_log_error(NGX_LOG_ERR, log, 0,
+                "Wrong tar header item size value \"%s\" \"%s\".",
+                archive_name->data, tar_header.name);
             return NULL;
         }
 
-        if (octal_to_int(tar_header.mtime, sizeof(tar_header.mtime), &current_mtime) != NGX_OK) {
-            ngx_log_error(NGX_LOG_ERR, log, 0, "Wrong tar header item mtime \"%s\" \"%s\".", archive_name->data, tar_header.name);
+        if (octal_to_int(tar_header.mtime,
+                         sizeof(tar_header.mtime),
+                         &current_mtime) != NGX_OK) {
+            ngx_log_error(NGX_LOG_ERR, log, 0,
+                "Wrong tar header item mtime \"%s\" \"%s\".",
+                archive_name->data, tar_header.name);
             return NULL;
         }
 
         if ((current_mtime >= NGX_MAX_TIME_T_VALUE) || (current_mtime <= 0)) {
             current_mtime = ofi->mtime;
-            ngx_log_error(NGX_LOG_WARN, log, 0, "Tar item contains wrong mtime, using archive mtime \"%s\" \"%s\".", archive_name->data, tar_header.name);
+            ngx_log_error(NGX_LOG_WARN, log, 0,
+            "Tar item contains wrong mtime, using archive mtime \"%s\" \"%s\".",
+            archive_name->data, tar_header.name);
         }
 
         if ((tar_header.typeflag == '0') || (tar_header.typeflag == '\0')) {
-            archive_item = ngx_pcalloc(archive->items_pool, sizeof(untar_archive_item_t));
-                if (archive_item == NULL) {
-                    return NULL;
-                }
+            archive_item = ngx_pcalloc(archive->items_pool,
+                                       sizeof(untar_archive_item_t));
+
+            if (archive_item == NULL) {
+                return NULL;
+            }
 
             archive_item->file_size = current_file_size;
-                archive_item->mtime = current_mtime;
+            archive_item->mtime = current_mtime;
 
-                archive_item->file_name.len = ngx_strlen(tar_header.name);
-                archive_item->file_name.data = ngx_pnalloc(archive->items_pool, archive_item->file_name.len);
-                if (archive_item->file_name.data == NULL) {
-                    return NULL;
-                }
-            ngx_memcpy(archive_item->file_name.data, tar_header.name, archive_item->file_name.len);
+            archive_item->file_name.len = ngx_strlen(tar_header.name);
+            archive_item->file_name.data = ngx_pnalloc(archive->items_pool,
+                                                   archive_item->file_name.len);
+            if (archive_item->file_name.data == NULL) {
+                return NULL;
+            }
 
-            archive_item_hash = ngx_crc32_long(archive_item->file_name.data, archive_item->file_name.len);
+            ngx_memcpy(archive_item->file_name.data,
+                       tar_header.name,
+                       archive_item->file_name.len);
+
+            archive_item_hash = ngx_crc32_long(archive_item->file_name.data,
+                                               archive_item->file_name.len);
             archive_item->str_node.node.key = archive_item_hash;
             archive_item->str_node.str = archive_item->file_name;
 
-            ngx_rbtree_insert(&archive->items_rbtree, &archive_item->str_node.node);
+            ngx_rbtree_insert(&archive->items_rbtree,
+                              &archive_item->str_node.node);
         } else {
             archive_item = NULL;
         }
-        
+
         current_offset += sizeof(tar_header);
         if (archive_item != NULL) {
             archive_item->offset = current_offset;
@@ -357,7 +392,8 @@ get_untar_archive(ngx_http_request_t *r, ngx_open_file_info_t *ofi, ngx_str_t *a
     }
 
     if (has_last_tar_header != NGX_OK) {
-        ngx_log_error(NGX_LOG_ERR, log, 0, "Has no last tar header \"%s\".", archive_name->data);
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "Has no last tar header \"%s\".", archive_name->data);
         return NULL;
     }
 
@@ -368,20 +404,20 @@ get_untar_archive(ngx_http_request_t *r, ngx_open_file_info_t *ofi, ngx_str_t *a
 static ngx_int_t
 ngx_http_untar_handler(ngx_http_request_t *r)
 {
-    ngx_chain_t                 out;
+    uint32_t                    archive_item_hash;
     ngx_str_t                   file_name_conf;
     ngx_str_t                   archive_name_conf;
     ngx_str_t                   file_name;
     ngx_str_t                   archive_name;
     ngx_log_t                   *log;
-    ngx_http_core_loc_conf_t    *clcf;
     ngx_int_t                   rc;
-    ngx_uint_t                  level;
-    ngx_open_file_info_t        of;
     ngx_buf_t                   *b;
+    ngx_uint_t                  level;
+    ngx_chain_t                 out;
     untar_archive_t             *archive;
-    uint32_t                    archive_item_hash;
+    ngx_open_file_info_t        of;
     untar_archive_item_t        *archive_item;
+    ngx_http_core_loc_conf_t    *clcf;
 
     log = r->connection->log;
     if (!(r->method & (NGX_HTTP_GET|NGX_HTTP_HEAD))) {
@@ -397,9 +433,12 @@ ngx_http_untar_handler(ngx_http_request_t *r)
     ngx_http_untar_loc_conf_t *lcf;
     lcf = ngx_http_get_module_loc_conf(r, ngx_http_untar_module);
 
-    if (ngx_http_complex_value(r, lcf->file_name, &file_name_conf) != NGX_OK
-            || ngx_http_complex_value(r, lcf->archive_name, &archive_name_conf) != NGX_OK) {
-        ngx_log_error(NGX_LOG_ERR, log, 0, "Failed to read untar module configuration settings.");
+    if (ngx_http_complex_value(r,
+            lcf->file_name, &file_name_conf) != NGX_OK
+        || ngx_http_complex_value(r,
+            lcf->archive_name, &archive_name_conf) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "Failed to read untar module configuration settings.");
         return NGX_ERROR;
     }
 
@@ -414,7 +453,8 @@ ngx_http_untar_handler(ngx_http_request_t *r)
     }
 
     ngx_log_debug2(NGX_LOG_DEBUG_HTTP, log, 0,
-                   "http tar archive: \"%V\" file: \"%V\"", &archive_name, &file_name);
+                   "http tar archive: \"%V\" file: \"%V\"",
+                   &archive_name, &file_name);
 
     clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
 
@@ -491,10 +531,15 @@ ngx_http_untar_handler(ngx_http_request_t *r)
 
     archive_item_hash = ngx_crc32_long(file_name.data, file_name.len);
 
-    archive_item = (untar_archive_item_t *)ngx_str_rbtree_lookup(&archive->items_rbtree, &file_name, archive_item_hash);
-    
+    archive_item = (untar_archive_item_t *)ngx_str_rbtree_lookup(
+                                            &archive->items_rbtree,
+                                            &file_name,
+                                            archive_item_hash);
+
     if (archive_item == NULL) {
-        ngx_log_error(NGX_LOG_ERR, log, 0, "File not found \"%s\" \"%s\".", archive_name.data, file_name.data);
+        ngx_log_error(NGX_LOG_ERR, log, 0,
+            "File not found \"%s\" \"%s\".",
+            archive_name.data, file_name.data);
         return NGX_HTTP_NOT_FOUND;
     }
 
