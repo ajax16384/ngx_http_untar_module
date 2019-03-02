@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2019 Andrei Kurushin
+ * For conditions of distribution and use, see copyright notice in LICENSE
+ */
+
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
