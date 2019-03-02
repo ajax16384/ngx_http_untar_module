@@ -17,15 +17,21 @@ Inspired by [nginx-unzip-module](https://github.com/youzee/nginx-unzip-module).
 ## Module directives
 ***
 **untar_archive** `string`
+
 **context:** `http, server, location`
+
 Specifies tar archive name.
 ***
 **untar_file** `string`
+
 **context:** `http, server, location`
+
 Specifies file to be extracted from **untar_archive**.
 ***
 **untar**
+
 **context:** `location`
+
 Invokes untar of **untar_file** from **untar_archive**
 ***
 ## Known limitations
