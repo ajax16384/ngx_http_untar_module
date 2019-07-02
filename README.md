@@ -40,5 +40,6 @@ Invokes untar of **untar_file** from **untar_archive**
 * base tar format support (only normal files: no symlink, sparse e.t.c)
 
 ## TODO
+* Add long file name support
 * Limit cache archive descriptors, free expired archive descriptors
 * Add tar item checksum to ETag
