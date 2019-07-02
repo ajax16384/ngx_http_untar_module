@@ -216,6 +216,9 @@ static untar_archive_t *
 get_untar_archive(ngx_http_request_t *r,
                   ngx_open_file_info_t *ofi, ngx_str_t *archive_name)
 {
+    char                        *lfn_buf;
+    char                        *current_lfn;
+    char                        *current_item_name;
     off_t                       current_offset;
     off_t                       pad_size;
     ssize_t                     read_size;
@@ -297,7 +300,8 @@ get_untar_archive(ngx_http_request_t *r,
 
     current_offset = 0;
     has_last_tar_header = NGX_ERROR;
-
+    lfn_buf = NULL;
+    current_lfn = NULL;
 
     while (current_offset < ofi->size) {
         read_size = ngx_read_file(&file,
@@ -344,14 +348,15 @@ get_untar_archive(ngx_http_request_t *r,
             return NULL;
         }
 
-        if ((current_mtime >= NGX_MAX_TIME_T_VALUE) || (current_mtime <= 0)) {
-            current_mtime = ofi->mtime;
-            ngx_log_error(NGX_LOG_WARN, log, 0,
-            "Tar item contains wrong mtime, using archive mtime \"%s\" \"%s\".",
-            archive_name->data, tar_header.name);
-        }
-
         if ((tar_header.typeflag == '0') || (tar_header.typeflag == '\0')) {
+
+            if ((current_mtime >= NGX_MAX_TIME_T_VALUE) || (current_mtime <= 0)) {
+                current_mtime = ofi->mtime;
+                ngx_log_error(NGX_LOG_WARN, log, 0,
+                    "Tar item contains wrong mtime, using archive mtime \"%s\" \"%s\".",
+                    archive_name->data, tar_header.name);
+            }
+
             archive_item = ngx_pcalloc(archive->items_pool,
                                        sizeof(untar_archive_item_t));
 
@@ -362,15 +367,21 @@ get_untar_archive(ngx_http_request_t *r,
             archive_item->file_size = current_file_size;
             archive_item->mtime = current_mtime;
 
-            archive_item->file_name.len = ngx_strlen(tar_header.name);
+            if (current_lfn != NULL) {
+                current_item_name = current_lfn;
+                current_lfn = NULL;
+            } else {
+                current_item_name = tar_header.name;
+            }
+            archive_item->file_name.len = ngx_strlen(current_item_name);
             archive_item->file_name.data = ngx_pnalloc(archive->items_pool,
-                                                   archive_item->file_name.len);
+                                                       archive_item->file_name.len);
             if (archive_item->file_name.data == NULL) {
                 return NULL;
             }
 
             ngx_memcpy(archive_item->file_name.data,
-                       tar_header.name,
+                       current_item_name,
                        archive_item->file_name.len);
 
             archive_item_hash = ngx_crc32_long(archive_item->file_name.data,
@@ -382,6 +393,32 @@ get_untar_archive(ngx_http_request_t *r,
                               &archive_item->str_node.node);
         } else {
             archive_item = NULL;
+            current_lfn = NULL;
+            if (tar_header.typeflag == 'L') {
+                if ((current_file_size > NGX_MAX_PATH + 1) || (current_file_size <= 0)) {
+                    ngx_log_error(NGX_LOG_WARN, log, 0,
+                        "Tar long file name item contains invalid data \"%s\".",
+                        archive_name->data);
+                } else {
+                    if (lfn_buf == NULL) {
+                        lfn_buf = ngx_pnalloc(archive->items_pool, NGX_MAX_PATH + 2);
+                        if (lfn_buf == NULL) {
+                            return NULL;
+                        }
+                    }
+                    current_lfn = lfn_buf;
+                    current_lfn[current_file_size] = '\0';
+                    read_size = ngx_read_file(&file,
+                        (u_char*)current_lfn,
+                        current_file_size,
+                        current_offset + sizeof(tar_header));
+                    if (read_size != current_file_size) {
+                        ngx_log_error(NGX_LOG_ERR, log, 0,
+                            "Unable to read long file name data \"%s\".", archive_name->data);
+                        return NULL;
+                    }
+                }
+            }
         }
 
         current_offset += sizeof(tar_header);

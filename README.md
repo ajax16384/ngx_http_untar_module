@@ -5,6 +5,7 @@ Inspired by [nginx-unzip-module](https://github.com/youzee/nginx-unzip-module).
 ## Features
 * Zero-copy: outputs content directly from archive file (no temporary files)
 * Caching parsed archive file entries: reduce archive scan-search time
+* Supported tar item types: normal file, long file name data
 
 ## Configuration example
 ```nginx
@@ -40,6 +41,5 @@ Invokes untar of **untar_file** from **untar_archive**
 * base tar format support (only normal files: no symlink, sparse e.t.c)
 
 ## TODO
-* Add long file name support
 * Limit cache archive descriptors, free expired archive descriptors
 * Add tar item checksum to ETag
