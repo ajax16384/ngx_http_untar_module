@@ -412,7 +412,7 @@ get_untar_archive(ngx_http_request_t *r,
                         (u_char*)current_lfn,
                         current_file_size,
                         current_offset + sizeof(tar_header));
-                    if (read_size != current_file_size) {
+                    if (read_size != ((ssize_t) current_file_size)) {
                         ngx_log_error(NGX_LOG_ERR, log, 0,
                             "Unable to read long file name data \"%s\".", archive_name->data);
                         return NULL;
