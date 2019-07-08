@@ -180,9 +180,11 @@ copy_zero_term_string(ngx_http_request_t *r, ngx_str_t *to, ngx_str_t *from)
 static ngx_int_t
 octal_to_int(const char *src, size_t size, uint64_t *out_res)
 {
-    uint64_t res = 0;
-    for (size_t i = size; i != 0; --i, ++src) {
-        char c = *src;
+    char            c;
+    size_t          i;
+    uint64_t        res = 0;
+    for (i = size; i != 0; --i, ++src) {
+        c = *src;
         if (c == ' ') {
             continue;
         }
@@ -203,7 +205,8 @@ octal_to_int(const char *src, size_t size, uint64_t *out_res)
 static ngx_int_t
 is_last_tar_header(const u_char *buf)
 {
-    for (size_t i = 0; i < sizeof(tar_header_t); ++i) {
+    size_t          i;
+    for (i = 0; i < sizeof(tar_header_t); ++i) {
         if (buf[i] != 0) {
             return NGX_DECLINED;
         }
