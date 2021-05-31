@@ -201,6 +201,25 @@ octal_to_int(const char *src, size_t size, uint64_t *out_res)
     return NGX_OK;
 }
 
+static uint32_t
+get_be_uint32(u_char *data)
+{
+    uint32_t        res;
+    res  = (uint32_t)data[0] << 24;
+    res |= (uint32_t)data[1] << 16;
+    res |= (uint32_t)data[2] << 8;
+    res |= (uint32_t)data[3];
+    return res;
+}
+
+static uint64_t
+get_be_uint64(u_char *data)
+{
+    uint64_t        res;
+    res  = (uint64_t)get_be_uint32(data) << 32;
+    res |= (uint64_t)get_be_uint32(data + 4);
+    return res;
+}
 
 static ngx_int_t
 is_last_tar_header(const u_char *buf)
@@ -224,7 +243,9 @@ get_untar_archive(ngx_http_request_t *r,
     char                        *current_item_name;
     off_t                       current_offset;
     off_t                       pad_size;
+    u_char                      *gnu_ext_buf;
     ssize_t                     read_size;
+    uint32_t                    gnu_high_part;
     uint32_t                    archive_hash;
     uint32_t                    archive_item_hash;
     uint64_t                    current_file_size;
@@ -326,13 +347,22 @@ get_untar_archive(ngx_http_request_t *r,
         // "mode" must be parsed before this line
         tar_header.mode[0] = '\0';
 
-        if (octal_to_int(tar_header.size,
-                         sizeof(tar_header.size),
-                         &current_file_size) != NGX_OK) {
-            ngx_log_error(NGX_LOG_ERR, log, 0,
-                "Wrong tar header item size \"%s\" \"%s\".",
-                archive_name->data, tar_header.name);
-            return NULL;
+        gnu_ext_buf = (u_char *)tar_header.size;
+        gnu_high_part = get_be_uint32(gnu_ext_buf);
+
+        // probe for "GNU extension" way of over 68GB file size format
+        // high 31-bits of 95-bit size must be zero
+        if (gnu_high_part == ((uint32_t)1 << 31)) {
+            current_file_size = get_be_uint64(gnu_ext_buf + 4);
+        } else {
+            if (octal_to_int(tar_header.size,
+                            sizeof(tar_header.size),
+                            &current_file_size) != NGX_OK) {
+                ngx_log_error(NGX_LOG_ERR, log, 0,
+                    "Wrong tar header item size \"%s\" \"%s\".",
+                    archive_name->data, tar_header.name);
+                return NULL;
+            }
         }
 
         if (current_file_size >= NGX_MAX_OFF_T_VALUE) {

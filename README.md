@@ -42,4 +42,4 @@ Invokes untar of **untar_file** from **untar_archive**
 
 ## TODO
 * Limit cache archive descriptors, free expired archive descriptors
-* Add tar item checksum to ETag
+* GNU extension modification time format
