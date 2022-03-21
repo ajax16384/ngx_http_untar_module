@@ -657,7 +657,7 @@ ngx_http_untar_handler(ngx_http_request_t *r)
     b->file_pos = archive_item->offset;
     b->file_last = (archive_item->offset + archive_item->file_size);
 
-    b->in_file = b->file_last ? 1 : 0;
+    b->in_file = archive_item->file_size ? 1 : 0;
     b->last_buf = (r == r->main) ? 1 : 0;
     b->last_in_chain = 1;
 
