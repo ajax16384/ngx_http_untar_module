@@ -4,7 +4,9 @@ Inspired by [nginx-unzip-module](https://github.com/youzee/nginx-unzip-module).
 
 ## Pre-built Packages (Ubuntu / Debian)
 
-Pre-built packages for this module are freely available from the GetPageSpeed repository:
+Pre-built packages for this module are freely available from the GetPageSpeed repository.
+
+> **Note:** GetPageSpeed is a third-party repository and is not affiliated with the author of this module.
 
 ```bash
 # Install the repository keyring
